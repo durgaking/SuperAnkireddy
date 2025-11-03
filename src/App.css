@@ -1,0 +1,51 @@
+.app-container {
+  @apply bg-purple-900 text-white min-h-screen p-4;
+}
+
+header {
+  @apply text-center mb-4;
+}
+
+header h1 {
+  @apply text-2xl font-bold;
+}
+
+header p {
+  @apply text-sm;
+}
+
+.balance-section, .amounts-section {
+  @apply flex justify-around mb-4;
+}
+
+.balance-section p, .amounts-section p {
+  @apply bg-purple-700 p-2 rounded-lg;
+}
+
+.recharge-point {
+  @apply text-center mb-4;
+}
+
+.recharge-point p {
+  @apply bg-purple-600 p-2 rounded-lg inline-block;
+}
+
+.services-section {
+  @apply grid grid-cols-3 gap-2 mb-4;
+}
+
+.service {
+  @apply bg-purple-500 p-2 rounded-lg text-center;
+}
+
+footer {
+  @apply text-center mt-4;
+}
+
+.footer-icons {
+  @apply flex justify-center gap-4 mt-2;
+}
+
+.footer-icons span {
+  @apply text-xl;
+}

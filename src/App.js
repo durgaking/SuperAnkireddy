@@ -1,0 +1,730 @@
+// App.js
+import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import {
+  MdPerson,
+  MdLock,
+  MdVisibility,
+  MdVisibilityOff,
+  MdPhone,
+  MdTv,
+  MdCreditCard,
+  MdLightbulb,
+  MdDescription,
+  MdDirectionsCar,
+  MdLocalGasStation,
+  MdLocalFireDepartment,
+  MdSecurity,
+  MdWifi,
+  MdSportsEsports,
+  MdMail,
+  MdAdd,
+  MdArrowUpward,
+  MdReceipt,
+  MdQrCodeScanner,
+  MdHome,
+  MdPerson as MdPersonNav,
+  MdSettings,
+  MdMenu,
+  MdAccountCircle,
+  MdLock as MdLockNav,
+  MdVerifiedUser,
+  MdExitToApp,
+  MdStar
+} from "react-icons/md";
+import PrepaidPage from "./PrepaidPage";
+
+const walletInfo = [
+  { label: "Recharge Wallet", amount: "₹ 50,000", icon: MdAdd },
+  { label: "Utility Wallet", amount: "723,800", icon: MdCreditCard },
+  { label: "Utility Point", amount: "1,100,000", icon: MdStar },
+  { label: "Utility Point", amount: "725,000", icon: MdStar }
+];
+
+const services = [
+  { name: "Prepaid", icon: MdPhone, path: "/prepaid" },
+  { name: "DTH", icon: MdTv },
+  { name: "Postpaid", icon: MdPhone },
+  { name: "Electricity", icon: MdLightbulb },
+  { name: "SIP PLAN", icon: MdDescription },
+  { name: "FASTag", icon: MdDirectionsCar },
+  { name: "Book A Cylinder", icon: MdLocalGasStation },
+  { name: "Piped Gas", icon: MdLocalFireDepartment },
+  { name: "LIC Insurance", icon: MdSecurity },
+  { name: "Broadband", icon: MdWifi },
+  { name: "Google Play Recharge", icon: MdSportsEsports },
+  { name: "Digital Mail", icon: MdMail }
+];
+
+// === Login Page ===
+function LoginPage() {
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (userId === "admin" && password === "admin") {
+      navigate("/dashboard");
+    } else {
+      setError("Invalid username or password");
+    }
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #0d8cc1 0%, #0a6fa3 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        fontFamily: "'Roboto', sans-serif"
+      }}
+    >
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            background: "#ff9800",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+            boxShadow: "0 6px 15px rgba(255, 152, 0, 0.3)"
+          }}
+        >
+          <span style={{ color: "#fff", fontSize: 42, fontWeight: 700 }}>S</span>
+        </div>
+        <h1 style={{ color: "#fff", fontSize: 32, fontWeight: 700, margin: 0 }}>Super Pay</h1>
+        <h2 style={{ color: "#fff", fontSize: 28, fontWeight: 500, margin: "8px 0 0" }}>Log In</h2>
+      </div>
+
+      <form onSubmit={handleLogin} style={{ width: "100%", maxWidth: 360 }}>
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            padding: "0 16px",
+            marginBottom: 16,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+          }}
+        >
+          <MdPerson size={24} color="#666" style={{ marginRight: 12 }} />
+          <div style={{ width: 1, height: 32, background: "#ddd", marginRight: 12 }} />
+          <input
+            type="text"
+            placeholder="USER ID"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "16px 0",
+              border: "none",
+              outline: "none",
+              fontSize: 16,
+              color: "#333"
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            padding: "0 16px",
+            marginBottom: 16,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+          }}
+        >
+          <MdLock size={24} color="#666" style={{ marginRight: 12 }} />
+          <div style={{ width: 1, height: 32, background: "#ddd", marginRight: 12 }} />
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="PASSWORD"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "16px 0",
+              border: "none",
+              outline: "none",
+              fontSize: 16,
+              color: "#333"
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#666",
+              fontSize: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 4
+            }}
+          >
+            {showPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+            <span>{showPassword ? "Hide" : "Show"}</span>
+          </button>
+        </div>
+
+        {error && (
+          <p style={{ color: "#ff5252", fontSize: 14, textAlign: "center", margin: "0 0 12px" }}>
+            {error}
+          </p>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", margin: "0 0 24px" }}>
+          <span
+            onClick={() => navigate("/forgot")}
+            style={{ color: "#fff", fontSize: 15, cursor: "pointer" }}
+          >
+            Forgot Password?
+          </span>
+          <span
+            onClick={() => navigate("/signup")}
+            style={{ color: "#fff", fontSize: 15, cursor: "pointer" }}
+          >
+            Sign Up
+          </span>
+        </div>
+
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            padding: 16,
+            background: "#ff9800",
+            color: "#fff",
+            border: "none",
+            borderRadius: 30,
+            fontSize: 18,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(255, 152, 0, 0.4)",
+            textTransform: "uppercase"
+          }}
+        >
+          Sign In
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// === Forgot Password Page ===
+function ForgotPasswordPage() {
+  const [mobile, setMobile] = useState("");
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (mobile.length === 10) {
+      setMessage("OTP sent to your mobile!");
+    } else {
+      setMessage("Enter valid 10-digit mobile");
+    }
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #0d8cc1 0%, #0a6fa3 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        fontFamily: "'Roboto', sans-serif"
+      }}
+    >
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 700 }}>Forgot Password?</h1>
+        <p style={{ color: "#ddd", fontSize: 16 }}>Enter your mobile to reset</p>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 360 }}>
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            padding: "0 16px",
+            marginBottom: 16
+          }}
+        >
+          <MdPhone size={24} color="#666" style={{ marginRight: 12 }} />
+          <div style={{ width: 1, height: 32, background: "#ddd", marginRight: 12 }} />
+          <input
+            type="text"
+            placeholder="MOBILE NUMBER"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            style={{
+              flex: 1,
+              padding: "16px 0",
+              border: "none",
+              outline: "none",
+              fontSize: 16
+            }}
+          />
+        </div>
+
+        {message && (
+          <p style={{ color: message.includes("sent") ? "#4caf50" : "#ff5252", textAlign: "center", margin: "0 0 16px" }}>
+            {message}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            padding: 16,
+            background: "#ff9800",
+            color: "#fff",
+            border: "none",
+            borderRadius: 30,
+            fontSize: 18,
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          Send OTP
+        </button>
+
+        <p
+          onClick={() => navigate("/")}
+          style={{ textAlign: "center", color: "#fff", marginTop: 20, cursor: "pointer" }}
+        >
+          Back to Login
+        </p>
+      </form>
+    </div>
+  );
+}
+
+// === Signup Page ===
+function SignupPage() {
+  const [fullName, setFullName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleSignup = (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!fullName || fullName.length < 3) return setError("Enter full name");
+    if (mobile.length !== 10) return setError("Enter valid 10-digit mobile");
+    if (password.length < 6) return setError("Password must be 6+ characters");
+    if (password !== confirmPassword) return setError("Passwords do not match");
+
+    alert("Signup successful! Please login.");
+    navigate("/");
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #0d8cc1 0%, #0a6fa3 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        fontFamily: "'Roboto', sans-serif"
+      }}
+    >
+      <div style={{ textAlign: "center", marginBottom: 30 }}>
+        <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 700 }}>Create Account</h1>
+      </div>
+
+      <form onSubmit={handleSignup} style={{ width: "100%", maxWidth: 360 }}>
+        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+          <input
+            type="text"
+            placeholder="FULL NAME"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+          />
+        </div>
+
+        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+          <input
+            type="text"
+            placeholder="MOBILE"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+          />
+        </div>
+
+        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+          <input
+            type="password"
+            placeholder="PASSWORD"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+          />
+        </div>
+
+        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+          <input
+            type="password"
+            placeholder="CONFIRM PASSWORD"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+          />
+        </div>
+
+        {error && (
+          <p style={{ color: "#ff5252", textAlign: "center", margin: "0 0 16px" }}>
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            padding: 16,
+            background: "#ff9800",
+            color: "#fff",
+            border: "none",
+            borderRadius: 30,
+            fontSize: 18,
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          Sign Up
+        </button>
+
+        <p
+          onClick={() => navigate("/")}
+          style={{ textAlign: "center", color: "#fff", marginTop: 20, cursor: "pointer" }}
+        >
+          Already have account? Login
+        </p>
+      </form>
+    </div>
+  );
+}
+
+// === Dashboard ===
+function Dashboard() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const toggleMenu = () => setMenuOpen(prev => !prev);
+
+  return (
+    <div style={{ fontFamily: "'Roboto', sans-serif", background: "#f5f4fa", minHeight: "100vh" }}>
+      {/* Header */}
+      <header
+        style={{
+          background: "linear-gradient(135deg, #6f3fc6, #9550db)",
+          color: "#fff",
+          borderRadius: "0 0 32px 32px",
+          position: "relative",
+          overflow: "hidden",
+          boxShadow: "0 8px 20px rgba(111, 63, 198, 0.3)"
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px" }}>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Super Pay</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <MdSettings size={24} />
+            <button
+              onClick={toggleMenu}
+              style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}
+            >
+              <MdMenu size={28} />
+            </button>
+          </div>
+        </div>
+
+        {menuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              top: 70,
+              right: 16,
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
+              minWidth: 200,
+              zIndex: 100,
+              overflow: "hidden"
+            }}
+          >
+            {[
+              { label: "Profile", icon: MdAccountCircle },
+              { label: "Change Password", icon: MdLockNav },
+              { label: "KYC", icon: MdVerifiedUser },
+              { label: "Logout", icon: MdExitToApp }
+            ].map((item, i) => (
+              <div
+                key={i}
+                onClick={() => {
+                  if (item.label === "Logout") {
+                    navigate("/");
+                  }
+                  setMenuOpen(false);
+                }}
+                style={{
+                  padding: "14px 20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  color: "#533a7b",
+                  cursor: "pointer",
+                  borderBottom: i < 3 ? "1px solid #eee" : "none"
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f8f5ff"}
+                onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+              >
+                <item.icon size={20} color="#6f3fc6" />
+                <span style={{ fontWeight: 500 }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", padding: "20px 16px" }}>
+          <img
+            src="https://i.ibb.co/9vqDf92/avatar-user.png"
+            alt="profile"
+            style={{
+              borderRadius: "50%",
+              width: 64,
+              height: 64,
+              border: "3px solid #fff",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+            }}
+          />
+          <div style={{ marginLeft: 16, flex: 1 }}>
+            <div style={{ fontSize: 15, opacity: 0.9 }}>
+              Good Afternoon <span style={{ fontSize: 18 }}>Naveen</span>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 18 }}>NAVEEN</div>
+            <div style={{ fontSize: 13, opacity: 0.7 }}>EP20003</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>Total Earning</div>
+            <div style={{ fontWeight: 700, fontSize: 22 }}>₹401,300</div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            margin: "0 16px 24px",
+            background: "#fff",
+            borderRadius: 20,
+            overflow: "hidden",
+            boxShadow: "0 4px 15px rgba(187, 178, 238, 0.3)"
+          }}
+        >
+          <ActionButton icon={MdAdd} label="Add Balance" />
+          <ActionButton icon={MdArrowUpward} label="Transfer" divider />
+          <ActionButton icon={MdReceipt} label="Passbook" divider />
+          <ActionButton icon={MdQrCodeScanner} label="Scan & Pay" divider />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, padding: "0 16px 20px", overflowX: "auto" }}>
+          {walletInfo.map((item, i) => (
+            <div
+              key={i}
+              style={{
+                background: i < 2 ? "rgba(255,255,255,0.15)" : "#e9e2f7",
+                borderRadius: 16,
+                minWidth: 110,
+                padding: "12px 8px",
+                textAlign: "center",
+                backdropFilter: "blur(10px)",
+                border: i >= 2 ? "1px solid #ddd" : "none"
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 18, color: i < 2 ? "#fff" : "#333" }}>
+                {item.amount}
+              </div>
+              <div style={{ fontSize: 12, color: i < 2 ? "#fff" : "#533a7b", marginTop: 4, fontWeight: 500 }}>
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </header>
+
+      <section
+        style={{
+          background: "#fff",
+          margin: "20px 16px",
+          borderRadius: 24,
+          overflow: "hidden",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.06)"
+        }}
+      >
+        <div
+          style={{
+            background: "#e9e2f7",
+            color: "#533a7b",
+            padding: "10px 0",
+            fontSize: 15,
+            textAlign: "center",
+            fontWeight: 600
+          }}
+        >
+          JO : 9996-436055 WE ARE HAPPY TO HELP YOU
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 16,
+            padding: "24px 12px"
+          }}
+        >
+          {services.map((item, idx) => (
+            <div
+              key={idx}
+              style={{
+                textAlign: "center",
+                cursor: item.path ? "pointer" : "default",
+                transition: "transform 0.2s"
+              }}
+              onClick={() => item.path && navigate(item.path)}
+              onMouseEnter={e => item.path && (e.currentTarget.style.transform = "translateY(-6px)")}
+              onMouseLeave={e => (e.currentTarget.style.transform = "translateY(0)")}
+            >
+              <div
+                style={{
+                  width: 60,
+                  height: 60,
+                  background: "#0c69e4",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 10px",
+                  boxShadow: "0 4px 12px rgba(12, 105, 228, 0.3)",
+                  transition: "all 0.3s"
+                }}
+                onMouseEnter={e => item.path && (e.currentTarget.style.background = "#0a58ca")}
+                onMouseLeave={e => (e.currentTarget.style.background = "#0c69e4")}
+              >
+                <item.icon size={28} color="#fff" />
+              </div>
+              <div style={{ color: "#533a7b", fontSize: 13, fontWeight: 600 }}>
+                {item.name}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            textAlign: "center",
+            padding: "12px 0",
+            color: "#9550db",
+            fontWeight: 700,
+            fontSize: 15,
+            cursor: "pointer"
+          }}
+        >
+          View More
+        </div>
+      </section>
+
+      <nav
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "#fff",
+          borderTop: "1px solid #eee",
+          padding: "10px 0",
+          display: "flex",
+          justifyContent: "space-around",
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.08)",
+          zIndex: 100
+        }}
+      >
+        <BottomNavItem icon={MdHome} label="Meeting" active />
+        <BottomNavItem icon={MdReceipt} label="Statement" />
+        <BottomNavItem icon={MdCreditCard} label="Monetization" />
+        <BottomNavItem icon={MdPersonNav} label="Portfolio" />
+      </nav>
+    </div>
+  );
+}
+
+// === Reusable Components ===
+function ActionButton({ icon: Icon, label, divider }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        textAlign: "center",
+        padding: "16px 0",
+        borderLeft: divider ? "1px solid #eee" : "none"
+      }}
+    >
+      <Icon size={24} color="#6f3fc6" />
+      <div style={{ fontSize: 13, marginTop: 6, fontWeight: 600, color: "#333" }}>{label}</div>
+    </div>
+  );
+}
+
+function BottomNavItem({ icon: Icon, label, active }) {
+  return (
+    <div style={{ textAlign: "center", color: active ? "#9550db" : "#666", cursor: "pointer" }}>
+      <Icon size={26} />
+      <div style={{ fontSize: 12, marginTop: 4, fontWeight: active ? 600 : 500 }}>{label}</div>
+    </div>
+  );
+}
+
+// === App Router ===
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/prepaid" element={<PrepaidPage />} />
+        <Route path="/forgot" element={<ForgotPasswordPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+      </Routes>
+    </Router>
+  );
+}
