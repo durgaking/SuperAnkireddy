@@ -14,6 +14,25 @@ app.use(bodyParser.json());
 // Initialize database on server start
 initDatabase();
 
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Super26 Backend Server is running!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+// Simple test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API is working perfectly!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // User Registration API
 app.post('/api/auth/signup', async (req, res) => {
   try {
