@@ -1,16 +1,14 @@
-﻿# Node modules
+﻿# Dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# React build output
+# Production builds
 build/
 dist/
-
-# Capacitor native folders
-android/
-ios/
+.android/
+.ios/
 
 # Environment variables
 .env
@@ -18,15 +16,45 @@ ios/
 .env.development.local
 .env.test.local
 .env.production.local
-
-# macOS / Windows
-.DS_Store
-Thumbs.db
+.env.backend
 
 # Logs
 logs
 *.log
 
-# Editor folders
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Capacitor
+android/
+ios/
+
+# Backend specific
+backend/node_modules/
+backend/.env
+
+# Frontend specific
+/.pnp
+.pnp.js
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache

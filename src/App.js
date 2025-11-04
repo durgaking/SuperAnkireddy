@@ -34,6 +34,65 @@ import {
 } from "react-icons/md";
 import PrepaidPage from "./PrepaidPage";
 
+// API Service
+class ApiService {
+  static API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://your-railway-backend-url.up.railway.app/api' 
+    : 'http://localhost:3001/api';
+
+  static async request(endpoint, options = {}) {
+    const url = `${this.API_BASE_URL}${endpoint}`;
+    
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      ...options,
+    };
+
+    if (config.body) {
+      config.body = JSON.stringify(config.body);
+    }
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('API Request failed:', error);
+      throw error;
+    }
+  }
+
+  // Auth APIs
+  static async signup(userData) {
+    return this.request('/auth/signup', {
+      method: 'POST',
+      body: userData,
+    });
+  }
+
+  static async login(credentials) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: credentials,
+    });
+  }
+
+  static async getUserProfile(userId) {
+    return this.request(`/users/${userId}`);
+  }
+
+  static async testConnection() {
+    return this.request('/test-db');
+  }
+}
+
 const walletInfo = [
   { label: "Recharge Wallet", amount: "₹ 50,000", icon: MdAdd },
   { label: "Utility Wallet", amount: "723,800", icon: MdCreditCard },
@@ -62,16 +121,31 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (userId === "admin" && password === "admin") {
-      navigate("/dashboard");
-    } else {
-      setError("Invalid username or password");
+    try {
+      // Call login API
+      const result = await ApiService.login({
+        userId,
+        password
+      });
+
+      if (result.success) {
+        // Store user data in localStorage
+        localStorage.setItem('user', JSON.stringify(result.user));
+        localStorage.setItem('isLoggedIn', 'true');
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      setError(error.message || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -124,7 +198,7 @@ function LoginPage() {
           <div style={{ width: 1, height: 32, background: "#ddd", marginRight: 12 }} />
           <input
             type="text"
-            placeholder="USER ID"
+            placeholder="USER ID, EMAIL OR MOBILE"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             style={{
@@ -185,7 +259,15 @@ function LoginPage() {
         </div>
 
         {error && (
-          <p style={{ color: "#ff5252", fontSize: 14, textAlign: "center", margin: "0 0 12px" }}>
+          <p style={{ 
+            color: "#ff5252", 
+            fontSize: 14, 
+            textAlign: "center", 
+            margin: "0 0 12px",
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            padding: "10px",
+            borderRadius: "8px"
+          }}>
             {error}
           </p>
         )}
@@ -207,21 +289,23 @@ function LoginPage() {
 
         <button
           type="submit"
+          disabled={loading}
           style={{
             width: "100%",
             padding: 16,
-            background: "#ff9800",
+            background: loading ? "#ccc" : "#ff9800",
             color: "#fff",
             border: "none",
             borderRadius: 30,
             fontSize: 18,
             fontWeight: 700,
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1,
             boxShadow: "0 4px 12px rgba(255, 152, 0, 0.4)",
             textTransform: "uppercase"
           }}
         >
-          Sign In
+          {loading ? "Signing In..." : "Sign In"}
         </button>
       </form>
     </div>
@@ -290,7 +374,14 @@ function ForgotPasswordPage() {
         </div>
 
         {message && (
-          <p style={{ color: message.includes("sent") ? "#4caf50" : "#ff5252", textAlign: "center", margin: "0 0 16px" }}>
+          <p style={{ 
+            color: message.includes("sent") ? "#4caf50" : "#ff5252", 
+            textAlign: "center", 
+            margin: "0 0 16px",
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            padding: "10px",
+            borderRadius: "8px"
+          }}>
             {message}
           </p>
         )}
@@ -314,7 +405,13 @@ function ForgotPasswordPage() {
 
         <p
           onClick={() => navigate("/")}
-          style={{ textAlign: "center", color: "#fff", marginTop: 20, cursor: "pointer" }}
+          style={{ 
+            textAlign: "center", 
+            color: "#fff", 
+            marginTop: 20, 
+            cursor: "pointer",
+            textDecoration: "underline"
+          }}
         >
           Back to Login
         </p>
@@ -326,23 +423,74 @@ function ForgotPasswordPage() {
 // === Signup Page ===
 function SignupPage() {
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (!fullName || fullName.length < 3) return setError("Enter full name");
-    if (mobile.length !== 10) return setError("Enter valid 10-digit mobile");
-    if (password.length < 6) return setError("Password must be 6+ characters");
-    if (password !== confirmPassword) return setError("Passwords do not match");
+    // Basic validation
+    if (!fullName || fullName.length < 3) {
+      setError("Full name must be at least 3 characters long");
+      setLoading(false);
+      return;
+    }
 
-    alert("Signup successful! Please login.");
-    navigate("/");
+    if (!email || !isValidEmail(email)) {
+      setError("Please enter a valid email address");
+      setLoading(false);
+      return;
+    }
+
+    if (mobile.length !== 10) {
+      setError("Enter valid 10-digit mobile number");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Call signup API
+      const result = await ApiService.signup({
+        fullName,
+        email,
+        mobile,
+        password
+      });
+
+      if (result.success) {
+        alert(`Signup successful! Your User ID is: ${result.user.userId}. Please login with your credentials.`);
+        navigate("/");
+      }
+    } catch (error) {
+      setError(error.message || "Signup failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Email validation function
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   return (
@@ -363,74 +511,175 @@ function SignupPage() {
       </div>
 
       <form onSubmit={handleSignup} style={{ width: "100%", maxWidth: 360 }}>
-        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+        {/* Full Name Field */}
+        <div style={{ 
+          background: "#fff", 
+          borderRadius: 12, 
+          padding: "0 16px", 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center"
+        }}>
+          <MdPerson size={20} color="#666" style={{ marginRight: 12 }} />
           <input
             type="text"
             placeholder="FULL NAME"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+            style={{ 
+              width: "100%", 
+              padding: "16px 0", 
+              border: "none", 
+              outline: "none", 
+              fontSize: 16 
+            }}
           />
         </div>
 
-        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+        {/* Email Field */}
+        <div style={{ 
+          background: "#fff", 
+          borderRadius: 12, 
+          padding: "0 16px", 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center"
+        }}>
+          <MdMail size={20} color="#666" style={{ marginRight: 12 }} />
+          <input
+            type="email"
+            placeholder="EMAIL ADDRESS"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{ 
+              width: "100%", 
+              padding: "16px 0", 
+              border: "none", 
+              outline: "none", 
+              fontSize: 16 
+            }}
+          />
+        </div>
+
+        {/* Mobile Field */}
+        <div style={{ 
+          background: "#fff", 
+          borderRadius: 12, 
+          padding: "0 16px", 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center"
+        }}>
+          <MdPhone size={20} color="#666" style={{ marginRight: 12 }} />
           <input
             type="text"
-            placeholder="MOBILE"
+            placeholder="MOBILE NUMBER"
             value={mobile}
             onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
-            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+            style={{ 
+              width: "100%", 
+              padding: "16px 0", 
+              border: "none", 
+              outline: "none", 
+              fontSize: 16 
+            }}
           />
         </div>
 
-        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+        {/* Password Field */}
+        <div style={{ 
+          background: "#fff", 
+          borderRadius: 12, 
+          padding: "0 16px", 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center"
+        }}>
+          <MdLock size={20} color="#666" style={{ marginRight: 12 }} />
           <input
             type="password"
             placeholder="PASSWORD"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+            style={{ 
+              width: "100%", 
+              padding: "16px 0", 
+              border: "none", 
+              outline: "none", 
+              fontSize: 16 
+            }}
           />
         </div>
 
-        <div style={{ background: "#fff", borderRadius: 12, padding: "0 16px", marginBottom: 16 }}>
+        {/* Confirm Password Field */}
+        <div style={{ 
+          background: "#fff", 
+          borderRadius: 12, 
+          padding: "0 16px", 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center"
+        }}>
+          <MdLock size={20} color="#666" style={{ marginRight: 12 }} />
           <input
             type="password"
             placeholder="CONFIRM PASSWORD"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            style={{ width: "100%", padding: "16px 0", border: "none", outline: "none", fontSize: 16 }}
+            style={{ 
+              width: "100%", 
+              padding: "16px 0", 
+              border: "none", 
+              outline: "none", 
+              fontSize: 16 
+            }}
           />
         </div>
 
         {error && (
-          <p style={{ color: "#ff5252", textAlign: "center", margin: "0 0 16px" }}>
+          <p style={{ 
+            color: "#ff5252", 
+            textAlign: "center", 
+            margin: "0 0 16px",
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            padding: "10px",
+            borderRadius: "8px",
+            fontSize: "14px"
+          }}>
             {error}
           </p>
         )}
 
         <button
           type="submit"
+          disabled={loading}
           style={{
             width: "100%",
             padding: 16,
-            background: "#ff9800",
+            background: loading ? "#ccc" : "#ff9800",
             color: "#fff",
             border: "none",
             borderRadius: 30,
             fontSize: 18,
             fontWeight: 700,
-            cursor: "pointer"
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1
           }}
         >
-          Sign Up
+          {loading ? "Creating Account..." : "Sign Up"}
         </button>
 
         <p
           onClick={() => navigate("/")}
-          style={{ textAlign: "center", color: "#fff", marginTop: 20, cursor: "pointer" }}
+          style={{ 
+            textAlign: "center", 
+            color: "#fff", 
+            marginTop: 20, 
+            cursor: "pointer",
+            textDecoration: "underline"
+          }}
         >
-          Already have account? Login
+          Already have an account? Login
         </p>
       </form>
     </div>
@@ -440,9 +689,24 @@ function SignupPage() {
 // === Dashboard ===
 function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
+  // Load user data on component mount
+  React.useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+
   const toggleMenu = () => setMenuOpen(prev => !prev);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('isLoggedIn');
+    navigate("/");
+  };
 
   return (
     <div style={{ fontFamily: "'Roboto', sans-serif", background: "#f5f4fa", minHeight: "100vh" }}>
@@ -494,7 +758,7 @@ function Dashboard() {
                 key={i}
                 onClick={() => {
                   if (item.label === "Logout") {
-                    navigate("/");
+                    handleLogout();
                   }
                   setMenuOpen(false);
                 }}
@@ -531,14 +795,14 @@ function Dashboard() {
           />
           <div style={{ marginLeft: 16, flex: 1 }}>
             <div style={{ fontSize: 15, opacity: 0.9 }}>
-              Good Afternoon <span style={{ fontSize: 18 }}>Naveen</span>
+              Good Afternoon <span style={{ fontSize: 18 }}>{user?.fullName || 'User'}</span>
             </div>
-            <div style={{ fontWeight: 600, fontSize: 18 }}>NAVEEN</div>
-            <div style={{ fontSize: 13, opacity: 0.7 }}>EP20003</div>
+            <div style={{ fontWeight: 600, fontSize: 18 }}>{user?.fullName?.toUpperCase() || 'USER'}</div>
+            <div style={{ fontSize: 13, opacity: 0.7 }}>{user?.userId || 'EP20003'}</div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 13, opacity: 0.8 }}>Total Earning</div>
-            <div style={{ fontWeight: 700, fontSize: 22 }}>₹401,300</div>
+            <div style={{ fontWeight: 700, fontSize: 22 }}>₹{user?.totalEarning ? user.totalEarning.toLocaleString() : '401,300'}</div>
           </div>
         </div>
 
