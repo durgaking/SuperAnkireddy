@@ -5,73 +5,23 @@ console.log('🔧 Database Configuration:');
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
 console.log('- NODE_ENV:', process.env.NODE_ENV);
 
-let pool;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { 
+    rejectUnauthorized: false 
+  } : false
+});
 
-try {
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { 
-      rejectUnauthorized: false 
-    },
-    // Add connection timeouts
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
-    max: 20 // Limit connections
-  });
-
-  // Test connection immediately
-  pool.on('connect', () => {
-    console.log('✅ New database connection established');
-  });
-
-  pool.on('error', (err) => {
-    console.error('❌ Database pool error:', err);
-  });
-
-  console.log('✅ Database pool created successfully');
-} catch (error) {
-  console.error('❌ Failed to create database pool:', error.message);
-  pool = null;
-}
-
-// Test database connection with timeout
-export const testConnection = async () => {
-  if (!pool) {
-    return {
-      success: false,
-      message: 'Database pool not available'
-    };
-  }
-
-  try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW() as current_time');
-    client.release();
-    
-    console.log('✅ Database connection test successful');
-    return {
-      success: true,
-      message: 'Database connected successfully',
-      time: result.rows[0].current_time
-    };
-  } catch (error) {
-    console.error('❌ Database connection test failed:', error.message);
-    return {
-      success: false,
-      message: 'Database connection failed',
-      error: error.message
-    };
-  }
-};
-
-// Initialize database with error handling
+// Initialize database with users table
 export const initDatabase = async () => {
-  if (!pool) {
-    console.log('⚠️ Database pool not available, skipping initialization');
-    return false;
-  }
-
   try {
+    // First, check if the table exists and has referral_id column
+    const tableCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'referral_id'
+    `);
+
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -80,6 +30,7 @@ export const initDatabase = async () => {
         email VARCHAR(100) UNIQUE NOT NULL,
         mobile VARCHAR(15) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
+        referral_id VARCHAR(50),
         total_earning DECIMAL(12,2) DEFAULT 0,
         status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -88,6 +39,16 @@ export const initDatabase = async () => {
     `;
     await pool.query(createTableQuery);
     console.log('✅ Users table initialized successfully');
+
+    // If referral_id column doesn't exist, add it
+    if (tableCheck.rows.length === 0) {
+      console.log('🔄 Adding referral_id column to users table...');
+      await pool.query('ALTER TABLE users ADD COLUMN referral_id VARCHAR(50)');
+      console.log('✅ referral_id column added successfully');
+    } else {
+      console.log('✅ referral_id column already exists');
+    }
+
     return true;
   } catch (error) {
     console.error('❌ Error initializing database:', error.message);
@@ -95,12 +56,28 @@ export const initDatabase = async () => {
   }
 };
 
-// Safe query function
-export const query = (text, params) => {
-  if (!pool) {
-    throw new Error('Database pool not available');
+// Test database connection
+export const testConnection = async () => {
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW()');
+    client.release();
+    
+    console.log('✅ Database connected successfully');
+    return {
+      success: true,
+      message: 'Database connected successfully',
+      time: result.rows[0].now
+    };
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    return {
+      success: false,
+      message: 'Database connection failed',
+      error: error.message
+    };
   }
-  return pool.query(text, params);
 };
 
+export const query = (text, params) => pool.query(text, params);
 export { pool };

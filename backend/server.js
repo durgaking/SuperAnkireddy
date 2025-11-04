@@ -7,8 +7,13 @@ import { query, initDatabase, testConnection } from './db/config.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware with error handling
-app.use(cors());
+// Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: false
+}));
+
 app.use(bodyParser.json());
 
 // Global error handling middleware
@@ -22,7 +27,7 @@ app.use((error, req, res, next) => {
   next();
 });
 
-// Health check - should always work
+// Health check
 app.get('/', (req, res) => {
   try {
     res.json({
@@ -39,7 +44,7 @@ app.get('/', (req, res) => {
   }
 });
 
-// Simple API test - no database
+// Simple API test
 app.get('/api/test', (req, res) => {
   try {
     res.json({
@@ -55,7 +60,7 @@ app.get('/api/test', (req, res) => {
   }
 });
 
-// Database test endpoint with safe error handling
+// Database test endpoint
 app.get('/api/test-db', async (req, res) => {
   try {
     const result = await testConnection();
@@ -63,7 +68,6 @@ app.get('/api/test-db', async (req, res) => {
     if (result.success) {
       res.json(result);
     } else {
-      // Don't return 500 for database errors, return 200 with error details
       res.json({
         success: false,
         message: 'Database test completed with errors',
@@ -80,7 +84,7 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// Safe user registration with comprehensive error handling
+// User Registration API with Referral ID
 app.post('/api/auth/signup', async (req, res) => {
   try {
     // Test database connection first
@@ -93,7 +97,9 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    const { fullName, email, mobile, password } = req.body;
+    const { fullName, email, mobile, password, referralId } = req.body;
+
+    console.log('📝 Signup request:', { fullName, email, mobile, referralId });
 
     // Basic validation
     if (!fullName || fullName.length < 3) {
@@ -137,27 +143,91 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
+    // Validate referral ID if provided
+    let validReferralId = null;
+    if (referralId && referralId.trim() !== '') {
+      const formattedReferralId = referralId.toUpperCase().trim();
+      const referrer = await query(
+        'SELECT user_id FROM users WHERE user_id = $1',
+        [formattedReferralId]
+      );
+
+      if (referrer.rows.length === 0) {
+        return res.json({
+          success: false,
+          message: 'Invalid referral ID'
+        });
+      }
+      validReferralId = formattedReferralId;
+      console.log('✅ Valid referral ID:', validReferralId);
+    }
+
     // Generate user ID
-    const userId = 'EP' + Math.floor(10000 + Math.random() * 90000);
+    let userId;
+    let isUnique = false;
+    let attempts = 0;
+    
+    while (!isUnique && attempts < 10) {
+      userId = 'EP' + Math.floor(10000 + Math.random() * 90000);
+      const existingId = await query(
+        'SELECT user_id FROM users WHERE user_id = $1',
+        [userId]
+      );
+      if (existingId.rows.length === 0) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!isUnique) {
+      return res.json({
+        success: false,
+        message: 'Failed to generate unique user ID'
+      });
+    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user
+    // Insert user with referral_id
     const result = await query(
-      `INSERT INTO users (user_id, full_name, email, mobile, password) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, full_name, email, mobile, created_at`,
-      [userId, fullName, email, mobile, hashedPassword]
+      `INSERT INTO users (user_id, full_name, email, mobile, password, referral_id) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, full_name, email, mobile, referral_id, created_at`,
+      [userId, fullName, email, mobile, hashedPassword, validReferralId]
     );
+
+    console.log('✅ User registered successfully:', result.rows[0]);
+
+    // Add referral bonus if referral ID is valid
+    if (validReferralId) {
+      try {
+        await query(
+          'UPDATE users SET total_earning = total_earning + 100 WHERE user_id = $1',
+          [validReferralId]
+        );
+        console.log(`💰 Referral bonus added to: ${validReferralId}`);
+      } catch (bonusError) {
+        console.error('❌ Error adding referral bonus:', bonusError);
+        // Don't fail the signup if bonus fails
+      }
+    }
 
     res.json({
       success: true,
       message: 'User registered successfully',
-      user: result.rows[0]
+      user: {
+        id: result.rows[0].id,
+        userId: result.rows[0].user_id,
+        fullName: result.rows[0].full_name,
+        email: result.rows[0].email,
+        mobile: result.rows[0].mobile,
+        referralId: result.rows[0].referral_id,
+        createdAt: result.rows[0].created_at
+      }
     });
 
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('❌ Signup error:', error);
     res.json({
       success: false,
       message: 'Registration failed',
@@ -166,7 +236,7 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-// Safe login endpoint
+// User Login API
 app.post('/api/auth/login', async (req, res) => {
   try {
     const dbTest = await testConnection();
@@ -217,6 +287,7 @@ app.post('/api/auth/login', async (req, res) => {
         fullName: user.full_name,
         email: user.email,
         mobile: user.mobile,
+        referralId: user.referral_id,
         totalEarning: user.total_earning
       }
     });
@@ -227,6 +298,39 @@ app.post('/api/auth/login', async (req, res) => {
       success: false,
       message: 'Login failed',
       error: error.message
+    });
+  }
+});
+
+// Get user profile
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const result = await query(
+      `SELECT id, user_id, full_name, email, mobile, referral_id, total_earning, created_at 
+       FROM users WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.json({ 
+      success: false, 
+      message: 'Error fetching user profile',
+      error: error.message 
     });
   }
 });
@@ -256,7 +360,7 @@ const initializeApp = async () => {
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`📡 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log('✅ Application ready!');
     });
     
