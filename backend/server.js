@@ -7,6 +7,7 @@ import { query, initDatabase, testConnection } from './db/config.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+
 // Middleware
 app.use(cors({
   origin: '*',
@@ -383,7 +384,7 @@ app.get('/api/users/:userId/referral-stats', async (req, res) => {
 });
 
 // Get full referral tree (hierarchical structure)
-// Get full referral tree (hierarchical structure)
+
 app.get('/api/tree', async (req, res) => {
   try {
     const dbTest = await testConnection();
