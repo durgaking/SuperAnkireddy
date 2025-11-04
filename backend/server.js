@@ -5,71 +5,107 @@ import bcrypt from 'bcryptjs';
 import { query, initDatabase, testConnection } from './db/config.js';
 
 const app = express();
-
-// Use Railway's provided PORT (or default to 3001 for local development)
 const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// Health check - test if server is running
+// Health check - should always work
 app.get('/', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'Super26 Backend is running!',
+  res.json({
+    success: true,
+    message: 'Super26 Backend Server is running!',
     timestamp: new Date().toISOString(),
-    port: PORT
+    database: process.env.DATABASE_URL ? 'Configured' : 'Not configured'
   });
 });
 
-// Simple API test
+// API test endpoint
 app.get('/api/test', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'API endpoint is working!',
+  res.json({
+    success: true,
+    message: 'API is working!',
     timestamp: new Date().toISOString()
   });
 });
 
-// Database connection test
+// Database test endpoint
 app.get('/api/test-db', async (req, res) => {
   try {
     const result = await testConnection();
-    if (result.success) {
-      res.json(result);
-    } else {
-      res.status(500).json(result);
-    }
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Database test failed',
-      error: error.message 
+      error: error.message
     });
   }
 });
 
-// Your existing routes (keep all your signup, login code as-is)
+// User Registration - with database error handling
 app.post('/api/auth/signup', async (req, res) => {
-  // ... your existing signup code ...
+  try {
+    // Check if database is available
+    const dbTest = await testConnection();
+    if (!dbTest.success) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database service unavailable',
+        error: dbTest.error
+      });
+    }
+
+    const { fullName, email, mobile, password } = req.body;
+
+    // ... rest of your signup code ...
+
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
 });
 
+// User Login - with database error handling
 app.post('/api/auth/login', async (req, res) => {
-  // ... your existing login code ...
+  try {
+    // Check if database is available
+    const dbTest = await testConnection();
+    if (!dbTest.success) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database service unavailable',
+        error: dbTest.error
+      });
+    }
+
+    const { userId, password } = req.body;
+
+    // ... rest of your login code ...
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
 });
 
-app.get('/api/users/:userId', async (req, res) => {
-  // ... your existing user profile code ...
-});
-
-// Initialize database on startup
+// Initialize database (but don't crash the server if it fails)
 initDatabase().then(success => {
-  console.log(success ? '✅ Database ready' : '❌ Database setup failed');
+  console.log(success ? '✅ Database ready' : '⚠️ Database not available');
+}).catch(error => {
+  console.error('❌ Database initialization error:', error);
 });
 
-// Start server
+// Start server (this should always work)
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
 });
