@@ -1,4 +1,3 @@
-// App.js
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import {
@@ -32,66 +31,8 @@ import {
   MdExitToApp,
   MdStar
 } from "react-icons/md";
+import ApiService from './services/api';
 import PrepaidPage from "./PrepaidPage";
-
-// API Service
-class ApiService {
-  static API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? 'https://your-railway-backend-url.up.railway.app/api' 
-    : 'http://localhost:3001/api';
-
-  static async request(endpoint, options = {}) {
-    const url = `${this.API_BASE_URL}${endpoint}`;
-    
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      ...options,
-    };
-
-    if (config.body) {
-      config.body = JSON.stringify(config.body);
-    }
-
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('API Request failed:', error);
-      throw error;
-    }
-  }
-
-  // Auth APIs
-  static async signup(userData) {
-    return this.request('/auth/signup', {
-      method: 'POST',
-      body: userData,
-    });
-  }
-
-  static async login(credentials) {
-    return this.request('/auth/login', {
-      method: 'POST',
-      body: credentials,
-    });
-  }
-
-  static async getUserProfile(userId) {
-    return this.request(`/users/${userId}`);
-  }
-
-  static async testConnection() {
-    return this.request('/test-db');
-  }
-}
 
 const walletInfo = [
   { label: "Recharge Wallet", amount: "₹ 50,000", icon: MdAdd },
@@ -427,6 +368,7 @@ function SignupPage() {
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [referralId, setReferralId] = useState(""); 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -473,11 +415,19 @@ function SignupPage() {
         fullName,
         email,
         mobile,
-        password
+        password,
+        referralId: referralId || null
       });
 
       if (result.success) {
         alert(`Signup successful! Your User ID is: ${result.user.userId}. Please login with your credentials.`);
+        // Clear form
+        setFullName("");
+        setEmail("");
+        setMobile("");
+        setPassword("");
+        setConfirmPassword("");
+        setReferralId("");
         navigate("/");
       }
     } catch (error) {
@@ -626,6 +576,29 @@ function SignupPage() {
             placeholder="CONFIRM PASSWORD"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            style={{ 
+              width: "100%", 
+              padding: "16px 0", 
+              border: "none", 
+              outline: "none", 
+              fontSize: 16 
+            }}
+          />
+        </div>
+         <div style={{ 
+          background: "#fff", 
+          borderRadius: 12, 
+          padding: "0 16px", 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center"
+        }}>
+          <MdPerson size={20} color="#666" style={{ marginRight: 12 }} />
+          <input
+            type="text"
+            placeholder="REFERRAL ID (Optional)"
+            value={referralId}
+            onChange={(e) => setReferralId(e.target.value.toUpperCase())}
             style={{ 
               width: "100%", 
               padding: "16px 0", 

@@ -15,11 +15,12 @@ const pool = new Pool({
 // Initialize database with users table
 export const initDatabase = async () => {
   try {
-    // First, check if the table exists and has referral_id column
-    const tableCheck = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'users' AND column_name = 'referral_id'
+    // First, check if the table exists
+    const tableExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'users'
+      )
     `);
 
     const createTableQuery = `
@@ -40,13 +41,21 @@ export const initDatabase = async () => {
     await pool.query(createTableQuery);
     console.log('✅ Users table initialized successfully');
 
-    // If referral_id column doesn't exist, add it
-    if (tableCheck.rows.length === 0) {
-      console.log('🔄 Adding referral_id column to users table...');
-      await pool.query('ALTER TABLE users ADD COLUMN referral_id VARCHAR(50)');
-      console.log('✅ referral_id column added successfully');
-    } else {
-      console.log('✅ referral_id column already exists');
+    // If table already existed, check for referral_id column
+    if (tableExists.rows[0].exists) {
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'referral_id'
+      `);
+
+      if (columnCheck.rows.length === 0) {
+        console.log('🔄 Adding referral_id column to users table...');
+        await pool.query('ALTER TABLE users ADD COLUMN referral_id VARCHAR(50)');
+        console.log('✅ referral_id column added successfully');
+      } else {
+        console.log('✅ referral_id column already exists');
+      }
     }
 
     return true;

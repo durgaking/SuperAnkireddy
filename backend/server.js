@@ -84,7 +84,7 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// User Registration API with Referral ID
+// User Registration API with Referral System
 app.post('/api/auth/signup', async (req, res) => {
   try {
     // Test database connection first
@@ -148,7 +148,7 @@ app.post('/api/auth/signup', async (req, res) => {
     if (referralId && referralId.trim() !== '') {
       const formattedReferralId = referralId.toUpperCase().trim();
       const referrer = await query(
-        'SELECT user_id FROM users WHERE user_id = $1',
+        'SELECT user_id, total_earning FROM users WHERE user_id = $1',
         [formattedReferralId]
       );
 
@@ -191,21 +191,28 @@ app.post('/api/auth/signup', async (req, res) => {
 
     // Insert user with referral_id
     const result = await query(
-      `INSERT INTO users (user_id, full_name, email, mobile, password, referral_id) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, full_name, email, mobile, referral_id, created_at`,
-      [userId, fullName, email, mobile, hashedPassword, validReferralId]
+      `INSERT INTO users (user_id, full_name, email, mobile, password, referral_id, total_earning) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, user_id, full_name, email, mobile, referral_id, total_earning, created_at`,
+      [userId, fullName, email, mobile, hashedPassword, validReferralId, 0]
     );
 
     console.log('✅ User registered successfully:', result.rows[0]);
 
-    // Add referral bonus if referral ID is valid
+    // Add referral bonus if referral ID is valid - ₹10 per referral
     if (validReferralId) {
       try {
         await query(
-          'UPDATE users SET total_earning = total_earning + 100 WHERE user_id = $1',
+          'UPDATE users SET total_earning = total_earning + 10 WHERE user_id = $1',
           [validReferralId]
         );
-        console.log(`💰 Referral bonus added to: ${validReferralId}`);
+        console.log(`💰 Referral bonus of ₹10 added to: ${validReferralId}`);
+        
+        // Get updated earning of referrer
+        const updatedReferrer = await query(
+          'SELECT total_earning FROM users WHERE user_id = $1',
+          [validReferralId]
+        );
+        console.log(`📊 ${validReferralId} total earning now: ₹${updatedReferrer.rows[0].total_earning}`);
       } catch (bonusError) {
         console.error('❌ Error adding referral bonus:', bonusError);
         // Don't fail the signup if bonus fails
@@ -222,6 +229,7 @@ app.post('/api/auth/signup', async (req, res) => {
         email: result.rows[0].email,
         mobile: result.rows[0].mobile,
         referralId: result.rows[0].referral_id,
+        totalEarning: result.rows[0].total_earning,
         createdAt: result.rows[0].created_at
       }
     });
@@ -335,6 +343,102 @@ app.get('/api/users/:userId', async (req, res) => {
   }
 });
 
+// Get referral statistics
+app.get('/api/users/:userId/referral-stats', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Check if user exists
+    const userCheck = await query(
+      'SELECT user_id, total_earning FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Get referral count and details
+    const referralCount = await query(
+      'SELECT COUNT(*) as count FROM users WHERE referral_id = $1',
+      [userId]
+    );
+
+    // Get referral details
+    const referralDetails = await query(
+      `SELECT user_id, full_name, email, mobile, created_at 
+       FROM users WHERE referral_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    const totalReferrals = parseInt(referralCount.rows[0].count);
+    const referralEarnings = totalReferrals * 10; // ₹10 per referral
+
+    res.json({
+      success: true,
+      referralStats: {
+        totalReferrals: totalReferrals,
+        referralEarnings: referralEarnings,
+        totalEarning: userCheck.rows[0].total_earning,
+        referrals: referralDetails.rows
+      }
+    });
+
+  } catch (error) {
+    console.error('Get referral stats error:', error);
+    res.json({ 
+      success: false, 
+      message: 'Error fetching referral statistics',
+      error: error.message 
+    });
+  }
+});
+
+// Update user profile
+app.put('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { fullName, email, mobile } = req.body;
+
+    // Check if user exists
+    const userCheck = await query(
+      'SELECT id FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Update user
+    const result = await query(
+      `UPDATE users SET full_name = $1, email = $2, mobile = $3, updated_at = CURRENT_TIMESTAMP 
+       WHERE user_id = $4 RETURNING user_id, full_name, email, mobile`,
+      [fullName, email, mobile, userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.json({ 
+      success: false, 
+      message: 'Error updating profile',
+      error: error.message 
+    });
+  }
+});
+
 // Global catch-all for unhandled routes
 app.use('*', (req, res) => {
   res.json({
@@ -369,5 +473,58 @@ const initializeApp = async () => {
     process.exit(1);
   }
 };
+
+app.post('/api/admin/update-earnings', async (req, res) => {
+  try {
+    const dbTest = await testConnection();
+    if (!dbTest.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Database temporarily unavailable',
+        error: dbTest.error
+      });
+    }
+
+    // Get all users with referral counts
+    const usersResult = await query(`
+      SELECT 
+          u.user_id,
+          u.total_earning AS current_earning,
+          COUNT(r.id) AS referral_count,
+          COUNT(r.id) * 10 AS expected_earning
+      FROM users u
+      LEFT JOIN users r ON u.user_id = r.referral_id
+      GROUP BY u.user_id, u.total_earning
+    `);
+
+    const users = usersResult.rows;
+    let updatedCount = 0;
+
+    // Update each user's total_earning
+    for (const user of users) {
+      if (user.current_earning !== user.expected_earning) {
+        await query(
+          'UPDATE users SET total_earning = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
+          [user.expected_earning, user.user_id]
+        );
+        updatedCount++;
+        console.log(`✅ Updated ${user.user_id}: ₹${user.current_earning} → ₹${user.expected_earning}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Earnings update completed. Updated ${updatedCount} users.`,
+      updated: updatedCount
+    });
+  } catch (error) {
+    console.error('❌ Error updating earnings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating earnings',
+      error: error.message
+    });
+  }
+});
 
 initializeApp();
