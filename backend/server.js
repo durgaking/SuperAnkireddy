@@ -13,7 +13,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: false
 }));
-
 app.use(bodyParser.json());
 
 // Global error handling middleware
@@ -64,7 +63,6 @@ app.get('/api/test', (req, res) => {
 app.get('/api/test-db', async (req, res) => {
   try {
     const result = await testConnection();
-    
     if (result.success) {
       res.json(result);
     } else {
@@ -87,7 +85,6 @@ app.get('/api/test-db', async (req, res) => {
 // User Registration API with Referral System
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    // Test database connection first
     const dbTest = await testConnection();
     if (!dbTest.success) {
       return res.json({
@@ -101,7 +98,6 @@ app.post('/api/auth/signup', async (req, res) => {
 
     console.log('📝 Signup request:', { fullName, email, mobile, referralId });
 
-    // Basic validation
     if (!fullName || fullName.length < 3) {
       return res.json({
         success: false,
@@ -130,7 +126,6 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    // Check if user exists
     const existingUser = await query(
       'SELECT * FROM users WHERE email = $1 OR mobile = $2',
       [email, mobile]
@@ -143,7 +138,6 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    // Validate referral ID if provided
     let validReferralId = null;
     if (referralId && referralId.trim() !== '') {
       const formattedReferralId = referralId.toUpperCase().trim();
@@ -162,11 +156,10 @@ app.post('/api/auth/signup', async (req, res) => {
       console.log('✅ Valid referral ID:', validReferralId);
     }
 
-    // Generate user ID
     let userId;
     let isUnique = false;
     let attempts = 0;
-    
+
     while (!isUnique && attempts < 10) {
       userId = 'EP' + Math.floor(10000 + Math.random() * 90000);
       const existingId = await query(
@@ -186,10 +179,8 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user with referral_id
     const result = await query(
       `INSERT INTO users (user_id, full_name, email, mobile, password, referral_id, total_earning) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, user_id, full_name, email, mobile, referral_id, total_earning, created_at`,
@@ -198,7 +189,6 @@ app.post('/api/auth/signup', async (req, res) => {
 
     console.log('✅ User registered successfully:', result.rows[0]);
 
-    // Add referral bonus if referral ID is valid - ₹10 per referral
     if (validReferralId) {
       try {
         await query(
@@ -207,7 +197,6 @@ app.post('/api/auth/signup', async (req, res) => {
         );
         console.log(`💰 Referral bonus of ₹10 added to: ${validReferralId}`);
         
-        // Get updated earning of referrer
         const updatedReferrer = await query(
           'SELECT total_earning FROM users WHERE user_id = $1',
           [validReferralId]
@@ -215,7 +204,6 @@ app.post('/api/auth/signup', async (req, res) => {
         console.log(`📊 ${validReferralId} total earning now: ₹${updatedReferrer.rows[0].total_earning}`);
       } catch (bonusError) {
         console.error('❌ Error adding referral bonus:', bonusError);
-        // Don't fail the signup if bonus fails
       }
     }
 
@@ -348,7 +336,6 @@ app.get('/api/users/:userId/referral-stats', async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Check if user exists
     const userCheck = await query(
       'SELECT user_id, total_earning FROM users WHERE user_id = $1',
       [userId]
@@ -361,13 +348,11 @@ app.get('/api/users/:userId/referral-stats', async (req, res) => {
       });
     }
 
-    // Get referral count and details
     const referralCount = await query(
       'SELECT COUNT(*) as count FROM users WHERE referral_id = $1',
       [userId]
     );
 
-    // Get referral details
     const referralDetails = await query(
       `SELECT user_id, full_name, email, mobile, created_at 
        FROM users WHERE referral_id = $1 ORDER BY created_at DESC`,
@@ -375,7 +360,7 @@ app.get('/api/users/:userId/referral-stats', async (req, res) => {
     );
 
     const totalReferrals = parseInt(referralCount.rows[0].count);
-    const referralEarnings = totalReferrals * 10; // ₹10 per referral
+    const referralEarnings = totalReferrals * 10;
 
     res.json({
       success: true,
@@ -397,13 +382,60 @@ app.get('/api/users/:userId/referral-stats', async (req, res) => {
   }
 });
 
+// Get full referral tree (hierarchical structure)
+app.get('/api/tree', async (req, res) => {
+  try {
+    const dbTest = await testConnection();
+    if (!dbTest.success) {
+      return res.json({
+        success: false,
+        message: 'Database temporarily unavailable'
+      });
+    }
+
+    const treeResult = await query(`
+      WITH RECURSIVE referral_tree AS (
+        SELECT 
+          id, user_id, full_name, email, mobile, referral_id,
+          0 AS level,
+          CAST(full_name AS TEXT) AS path,
+          ARRAY[user_id] AS path_ids
+        FROM users 
+        WHERE referral_id IS NULL
+        UNION ALL
+        SELECT 
+          u.id, u.user_id, u.full_name, u.email, u.mobile, u.referral_id,
+          rt.level + 1,
+          rt.path || ' → ' || u.full_name,
+          rt.path_ids || u.user_id
+        FROM users u
+        INNER JOIN referral_tree rt ON u.referral_id = rt.user_id
+      )
+      SELECT * FROM referral_tree
+      ORDER BY path_ids;
+    `);
+
+    res.json({
+      success: true,
+      tree: treeResult.rows
+    });
+
+  } catch (error) {
+    console.error('Tree query error:', error);
+    res.json({
+      success: false,
+      message: 'Error fetching tree structure',
+      error: error.message
+    });
+  }
+});
+
 // Update user profile
 app.put('/api/users/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const { fullName, email, mobile } = req.body;
 
-    // Check if user exists
     const userCheck = await query(
       'SELECT id FROM users WHERE user_id = $1',
       [userId]
@@ -416,7 +448,6 @@ app.put('/api/users/:userId', async (req, res) => {
       });
     }
 
-    // Update user
     const result = await query(
       `UPDATE users SET full_name = $1, email = $2, mobile = $3, updated_at = CURRENT_TIMESTAMP 
        WHERE user_id = $4 RETURNING user_id, full_name, email, mobile`,
@@ -439,41 +470,7 @@ app.put('/api/users/:userId', async (req, res) => {
   }
 });
 
-// Global catch-all for unhandled routes
-app.use('*', (req, res) => {
-  res.json({
-    success: false,
-    message: 'Endpoint not found',
-    path: req.originalUrl
-  });
-});
-
-// Initialize database safely
-const initializeApp = async () => {
-  try {
-    console.log('🚀 Starting Super26 Backend...');
-    
-    // Test database connection
-    const dbTest = await testConnection();
-    console.log(dbTest.success ? '✅ Database connected' : '❌ Database connection failed');
-    
-    if (dbTest.success) {
-      await initDatabase();
-    }
-    
-    // Start server
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`📡 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log('✅ Application ready!');
-    });
-    
-  } catch (error) {
-    console.error('❌ Failed to start application:', error);
-    process.exit(1);
-  }
-};
-
+// Admin endpoint to update earnings
 app.post('/api/admin/update-earnings', async (req, res) => {
   try {
     const dbTest = await testConnection();
@@ -485,7 +482,6 @@ app.post('/api/admin/update-earnings', async (req, res) => {
       });
     }
 
-    // Get all users with referral counts
     const usersResult = await query(`
       SELECT 
           u.user_id,
@@ -500,7 +496,6 @@ app.post('/api/admin/update-earnings', async (req, res) => {
     const users = usersResult.rows;
     let updatedCount = 0;
 
-    // Update each user's total_earning
     for (const user of users) {
       if (user.current_earning !== user.expected_earning) {
         await query(
@@ -526,5 +521,38 @@ app.post('/api/admin/update-earnings', async (req, res) => {
     });
   }
 });
+
+// Global catch-all for unhandled routes
+app.use('*', (req, res) => {
+  res.json({
+    success: false,
+    message: 'Endpoint not found',
+    path: req.originalUrl
+  });
+});
+
+// Initialize database safely
+const initializeApp = async () => {
+  try {
+    console.log('🚀 Starting Super26 Backend...');
+    
+    const dbTest = await testConnection();
+    console.log(dbTest.success ? '✅ Database connected' : '❌ Database connection failed');
+    
+    if (dbTest.success) {
+      await initDatabase();
+    }
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`📡 Server running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log('✅ Application ready!');
+    });
+    
+  } catch (error) {
+    console.error('❌ Failed to start application:', error);
+    process.exit(1);
+  }
+};
 
 initializeApp();

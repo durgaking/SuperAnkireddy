@@ -55,6 +55,11 @@ class ApiService {
     return this.request(`/users/${userId}/referral-stats`);
   }
 
+  // New: Fetch full tree structure
+  static async getTree() {
+    return this.request('/tree');
+  }
+
   static async testConnection() {
     return this.request('/test-db');
   }

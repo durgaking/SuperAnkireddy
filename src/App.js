@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import {
   MdPerson,
@@ -29,7 +29,8 @@ import {
   MdLock as MdLockNav,
   MdVerifiedUser,
   MdExitToApp,
-  MdStar
+  MdStar,
+  MdAccountTree // Added for TreePage
 } from "react-icons/md";
 import ApiService from './services/api';
 import PrepaidPage from "./PrepaidPage";
@@ -53,7 +54,8 @@ const services = [
   { name: "LIC Insurance", icon: MdSecurity },
   { name: "Broadband", icon: MdWifi },
   { name: "Google Play Recharge", icon: MdSportsEsports },
-  { name: "Digital Mail", icon: MdMail }
+  { name: "Digital Mail", icon: MdMail },
+  { name: "Tree", icon: MdAccountTree, path: "/tree" } // Added Tree service
 ];
 
 // === Login Page ===
@@ -71,14 +73,12 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      // Call login API
       const result = await ApiService.login({
         userId,
         password
       });
 
       if (result.success) {
-        // Store user data in localStorage
         localStorage.setItem('user', JSON.stringify(result.user));
         localStorage.setItem('isLoggedIn', 'true');
         navigate("/dashboard");
@@ -368,7 +368,7 @@ function SignupPage() {
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [referralId, setReferralId] = useState(""); 
+  const [referralId, setReferralId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -378,7 +378,6 @@ function SignupPage() {
     setError("");
     setLoading(true);
 
-    // Basic validation
     if (!fullName || fullName.length < 3) {
       setError("Full name must be at least 3 characters long");
       setLoading(false);
@@ -410,7 +409,6 @@ function SignupPage() {
     }
 
     try {
-      // Call signup API
       const result = await ApiService.signup({
         fullName,
         email,
@@ -421,7 +419,6 @@ function SignupPage() {
 
       if (result.success) {
         alert(`Signup successful! Your User ID is: ${result.user.userId}. Please login with your credentials.`);
-        // Clear form
         setFullName("");
         setEmail("");
         setMobile("");
@@ -437,7 +434,6 @@ function SignupPage() {
     }
   };
 
-  // Email validation function
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -461,7 +457,6 @@ function SignupPage() {
       </div>
 
       <form onSubmit={handleSignup} style={{ width: "100%", maxWidth: 360 }}>
-        {/* Full Name Field */}
         <div style={{ 
           background: "#fff", 
           borderRadius: 12, 
@@ -486,7 +481,6 @@ function SignupPage() {
           />
         </div>
 
-        {/* Email Field */}
         <div style={{ 
           background: "#fff", 
           borderRadius: 12, 
@@ -511,7 +505,6 @@ function SignupPage() {
           />
         </div>
 
-        {/* Mobile Field */}
         <div style={{ 
           background: "#fff", 
           borderRadius: 12, 
@@ -536,7 +529,6 @@ function SignupPage() {
           />
         </div>
 
-        {/* Password Field */}
         <div style={{ 
           background: "#fff", 
           borderRadius: 12, 
@@ -561,7 +553,6 @@ function SignupPage() {
           />
         </div>
 
-        {/* Confirm Password Field */}
         <div style={{ 
           background: "#fff", 
           borderRadius: 12, 
@@ -585,7 +576,8 @@ function SignupPage() {
             }}
           />
         </div>
-         <div style={{ 
+
+        <div style={{ 
           background: "#fff", 
           borderRadius: 12, 
           padding: "0 16px", 
@@ -663,27 +655,48 @@ function SignupPage() {
 function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [referralCount, setReferralCount] = useState(0);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // Load user data on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+
+      ApiService.getReferralStats(parsedUser.userId)
+        .then(data => {
+          if (data.success) {
+            setReferralCount(data.referralStats.totalReferrals);
+            setUser(prev => ({ ...prev, totalEarning: data.referralStats.totalEarning }));
+            localStorage.setItem('user', JSON.stringify({
+              ...parsedUser,
+              totalEarning: data.referralStats.totalEarning
+            }));
+          } else {
+            setError(data.message || "Failed to fetch referral stats");
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching referral stats:', error);
+          setError("Unable to fetch referral stats");
+        });
+    } else {
+      navigate("/");
     }
-  }, []);
+  }, [navigate]);
 
   const toggleMenu = () => setMenuOpen(prev => !prev);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('isLoggedIn');
+    localStorage.setItem('isLoggedIn', 'false');
     navigate("/");
   };
 
   return (
     <div style={{ fontFamily: "'Roboto', sans-serif", background: "#f5f4fa", minHeight: "100vh" }}>
-      {/* Header */}
       <header
         style={{
           background: "linear-gradient(135deg, #6f3fc6, #9550db)",
@@ -775,7 +788,17 @@ function Dashboard() {
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 13, opacity: 0.8 }}>Total Earning</div>
-            <div style={{ fontWeight: 700, fontSize: 22 }}>₹{user?.totalEarning ? user.totalEarning.toLocaleString() : '401,300'}</div>
+            <div style={{ fontWeight: 700, fontSize: 22 }}>
+              ₹{user?.totalEarning ? user.totalEarning.toLocaleString() : '401,300'}
+            </div>
+            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+              Referrals: {referralCount}
+            </div>
+            {error && (
+              <div style={{ fontSize: 12, color: "#ff5252", marginTop: 4 }}>
+                {error}
+              </div>
+            )}
           </div>
         </div>
 
@@ -925,6 +948,133 @@ function Dashboard() {
   );
 }
 
+// === Tree Page ===
+function TreePage() {
+  const [treeData, setTreeData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchTree = async () => {
+      try {
+        setLoading(true);
+        const result = await ApiService.getTree();
+        if (result.success) {
+          setTreeData(result.tree);
+        } else {
+          setError(result.message || "Failed to fetch tree");
+        }
+      } catch (err) {
+        setError(err.message || "Error loading tree");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+      navigate("/");
+      return;
+    }
+
+    fetchTree();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f4fa" }}>
+        <div>Loading Tree...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f5f4fa" }}>
+        <div style={{ color: "#ff5252", textAlign: "center" }}>
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontFamily: "'Roboto', sans-serif", background: "#f5f4fa", minHeight: "100vh", padding: "20px" }}>
+      <header style={{ textAlign: "center", marginBottom: "20px" }}>
+        <h1 style={{ color: "#6f3fc6", fontSize: "28px", margin: "0" }}>Referral Tree Structure</h1>
+        <p style={{ color: "#666", fontSize: "16px" }}>Hierarchical view of users based on referrals</p>
+      </header>
+
+      <div style={{ background: "#fff", borderRadius: "24px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", maxHeight: "80vh", overflowY: "auto" }}>
+        {treeData.length === 0 ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
+            No referral tree data available.
+          </div>
+        ) : (
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {treeData.map((node, index) => (
+              <li
+                key={node.id}
+                style={{
+                  padding: "12px 20px",
+                  borderBottom: index < treeData.length - 1 ? "1px solid #eee" : "none",
+                  paddingLeft: `${node.level * 20 + 20}px`,
+                  fontSize: "14px",
+                  color: "#333",
+                  position: "relative"
+                }}
+              >
+                {node.level > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${node.level * 20}px`,
+                      top: "50%",
+                      width: "1px",
+                      height: "100%",
+                      background: "#ddd",
+                      transform: "translateY(100%)"
+                    }}
+                  />
+                )}
+                <strong>{node.user_id}</strong> - {node.full_name}
+                <br />
+                <small style={{ color: "#666", fontSize: "12px" }}>
+                  Email: {node.email} | Mobile: {node.mobile} | Level: {node.level}
+                </small>
+                {node.path && <br />}
+                <small style={{ color: "#9550db", fontSize: "11px" }}>Path: {node.path}</small>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <button
+        onClick={() => navigate("/dashboard")}
+        style={{
+          position: "fixed",
+          bottom: "100px",
+          right: "20px",
+          background: "#6f3fc6",
+          color: "#fff",
+          border: "none",
+          borderRadius: "50%",
+          width: "50px",
+          height: "50px",
+          cursor: "pointer",
+          boxShadow: "0 4px 12px rgba(111, 63, 198, 0.3)"
+        }}
+      >
+        ←
+      </button>
+    </div>
+  );
+}
+
 // === Reusable Components ===
 function ActionButton({ icon: Icon, label, divider }) {
   return (
@@ -961,6 +1111,7 @@ export default function App() {
         <Route path="/prepaid" element={<PrepaidPage />} />
         <Route path="/forgot" element={<ForgotPasswordPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/tree" element={<TreePage />} />
       </Routes>
     </Router>
   );
