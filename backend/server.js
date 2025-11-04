@@ -383,6 +383,7 @@ app.get('/api/users/:userId/referral-stats', async (req, res) => {
 });
 
 // Get full referral tree (hierarchical structure)
+// Get full referral tree (hierarchical structure)
 app.get('/api/tree', async (req, res) => {
   try {
     const dbTest = await testConnection();
@@ -396,15 +397,25 @@ app.get('/api/tree', async (req, res) => {
     const treeResult = await query(`
       WITH RECURSIVE referral_tree AS (
         SELECT 
-          id, user_id, full_name, email, mobile, referral_id,
+          id, 
+          user_id, 
+          full_name, 
+          email, 
+          mobile, 
+          referral_id,
           0 AS level,
           CAST(full_name AS TEXT) AS path,
-          ARRAY[user_id] AS path_ids
+          ARRAY[user_id::character varying] AS path_ids  -- Cast to character varying
         FROM users 
         WHERE referral_id IS NULL
         UNION ALL
         SELECT 
-          u.id, u.user_id, u.full_name, u.email, u.mobile, u.referral_id,
+          u.id, 
+          u.user_id, 
+          u.full_name, 
+          u.email, 
+          u.mobile, 
+          u.referral_id,
           rt.level + 1,
           rt.path || ' → ' || u.full_name,
           rt.path_ids || u.user_id
