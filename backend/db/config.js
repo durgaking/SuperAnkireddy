@@ -1,67 +1,73 @@
 import pg from 'pg';
 const { Pool } = pg;
-import dotenv from 'dotenv';
 
-dotenv.config();
+console.log('🔧 Database Configuration:');
+console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
 
-console.log('🔧 Checking Database Configuration...');
-console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-
-if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL environment variable is missing!');
-}
-
-// Create pool with better error handling
 let pool;
 
 try {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
+    ssl: { 
+      rejectUnauthorized: false 
     },
-    connectionTimeoutMillis: 10000, // 10 seconds
+    // Add connection timeouts
+    connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
+    max: 20 // Limit connections
+  });
+
+  // Test connection immediately
+  pool.on('connect', () => {
+    console.log('✅ New database connection established');
+  });
+
+  pool.on('error', (err) => {
+    console.error('❌ Database pool error:', err);
   });
 
   console.log('✅ Database pool created successfully');
 } catch (error) {
-  console.error('❌ Failed to create database pool:', error);
+  console.error('❌ Failed to create database pool:', error.message);
   pool = null;
 }
 
-// Test connection function
+// Test database connection with timeout
 export const testConnection = async () => {
   if (!pool) {
-    return { success: false, error: 'Database pool not initialized' };
+    return {
+      success: false,
+      message: 'Database pool not available'
+    };
   }
 
   try {
     const client = await pool.connect();
-    const result = await client.query('SELECT NOW() as current_time, version() as pg_version');
+    const result = await client.query('SELECT NOW() as current_time');
     client.release();
     
     console.log('✅ Database connection test successful');
-    return { 
-      success: true, 
-      time: result.rows[0].current_time,
-      version: result.rows[0].pg_version
+    return {
+      success: true,
+      message: 'Database connected successfully',
+      time: result.rows[0].current_time
     };
   } catch (error) {
     console.error('❌ Database connection test failed:', error.message);
-    return { 
-      success: false, 
-      error: error.message,
-      details: 'Check DATABASE_URL and network connectivity'
+    return {
+      success: false,
+      message: 'Database connection failed',
+      error: error.message
     };
   }
 };
 
-// Initialize database with users table
+// Initialize database with error handling
 export const initDatabase = async () => {
   if (!pool) {
-    console.error('❌ Cannot initialize database: pool not available');
+    console.log('⚠️ Database pool not available, skipping initialization');
     return false;
   }
 
@@ -89,6 +95,7 @@ export const initDatabase = async () => {
   }
 };
 
+// Safe query function
 export const query = (text, params) => {
   if (!pool) {
     throw new Error('Database pool not available');
